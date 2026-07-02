@@ -1,8 +1,11 @@
+using System;
 using UnityEngine;
 
 public sealed class PipeMovement : MonoBehaviour
 {
-    [SerializeField, Min(0f)] private float moveSpeed = 5f;
+    public event Action<PipeMovement> OnDestroyed;
+
+    [SerializeField, Min(0f)] private float moveSpeed = 8f;
     [SerializeField, Min(0f)] private float destroyPadding = 0.5f;
 
     private Camera mainCamera;
@@ -41,6 +44,11 @@ public sealed class PipeMovement : MonoBehaviour
     public void SetMoving(bool shouldMove)
     {
         isMoving = shouldMove;
+    }
+
+    private void OnDestroy()
+    {
+        OnDestroyed?.Invoke(this);
     }
 
     private float CalculateHalfWidth()

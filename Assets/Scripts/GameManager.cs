@@ -12,7 +12,6 @@ public enum GameState
 [RequireComponent(typeof(PipeSpawner))]
 [RequireComponent(typeof(ScoreManager))]
 [RequireComponent(typeof(AudioManager))]
-[RequireComponent(typeof(UIManager))]
 public sealed class GameManager : MonoBehaviour
 {
     public event Action OnWaiting;
@@ -49,7 +48,7 @@ public sealed class GameManager : MonoBehaviour
 
     private void OnEnable()
     {
-        PipeScoreZone.OnBirdPassed += HandleBirdPassed;
+        pipeSpawner.OnBirdPassed += HandleBirdPassed;
 
         if (bird != null)
         {
@@ -66,7 +65,7 @@ public sealed class GameManager : MonoBehaviour
 
     private void OnDisable()
     {
-        PipeScoreZone.OnBirdPassed -= HandleBirdPassed;
+        pipeSpawner.OnBirdPassed -= HandleBirdPassed;
 
         if (bird != null)
         {
@@ -203,6 +202,7 @@ public sealed class GameManager : MonoBehaviour
         }
 
         pipeSpawner.ResetPipes();
+        bird.SetGravityInverted(inverted);
         bird.SetTransitionPaused(true);
         OnWorldTransitionStarted?.Invoke();
 

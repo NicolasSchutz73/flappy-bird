@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(Rigidbody2D))]
+[RequireComponent(typeof(SpriteRenderer))]
 public sealed class BirdController : MonoBehaviour
 {
     public event Action OnPrimaryAction;
@@ -17,18 +18,21 @@ public sealed class BirdController : MonoBehaviour
 
     private Rigidbody2D body;
     private Animator animator;
+    private SpriteRenderer spriteRenderer;
     private Vector3 initialPosition;
     private Quaternion initialRotation;
     private float gameplayGravityScale;
     private bool canFlap;
     private bool isPlaying;
     private bool gravityInverted;
+    private bool isTransitionPaused;
     private bool flapRequested;
 
     private void Awake()
     {
         body = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
         initialPosition = transform.position;
         initialRotation = transform.rotation;
         gameplayGravityScale = Mathf.Abs(body.gravityScale);
@@ -46,7 +50,7 @@ public sealed class BirdController : MonoBehaviour
             }
         }
 
-        if (isPlaying)
+        if (isPlaying && !isTransitionPaused)
         {
             UpdateRotation();
         }
@@ -79,7 +83,10 @@ public sealed class BirdController : MonoBehaviour
     {
         canFlap = false;
         isPlaying = false;
+        gravityInverted = false;
+        isTransitionPaused = false;
         flapRequested = false;
+        spriteRenderer.flipY = false;
         body.gravityScale = 0f;
         body.linearVelocity = Vector2.zero;
         body.angularVelocity = 0f;
@@ -98,6 +105,7 @@ public sealed class BirdController : MonoBehaviour
         body.gravityScale = gravityInverted ? -gameplayGravityScale : gameplayGravityScale;
         canFlap = true;
         isPlaying = true;
+        isTransitionPaused = false;
 
         if (animator != null)
         {
@@ -111,6 +119,8 @@ public sealed class BirdController : MonoBehaviour
         isPlaying = false;
         flapRequested = false;
         gravityInverted = false;
+        isTransitionPaused = false;
+        spriteRenderer.flipY = false;
         body.gravityScale = gameplayGravityScale;
 
         if (animator != null)
@@ -127,8 +137,12 @@ public sealed class BirdController : MonoBehaviour
         }
 
         gravityInverted = inverted;
+        spriteRenderer.flipY = inverted;
         flapRequested = false;
         body.linearVelocityY = 0f;
+        float snapAngle = gravityInverted ? -riseAngle : riseAngle;
+        body.rotation = snapAngle;
+        transform.rotation = Quaternion.Euler(0f, 0f, snapAngle);
 
         if (isPlaying)
         {
@@ -143,6 +157,7 @@ public sealed class BirdController : MonoBehaviour
             return;
         }
 
+        isTransitionPaused = paused;
         canFlap = !paused;
         flapRequested = false;
         body.linearVelocity = Vector2.zero;
@@ -153,9 +168,11 @@ public sealed class BirdController : MonoBehaviour
 
     private void UpdateRotation()
     {
-        bool isRising = flapRequested ? !gravityInverted : body.linearVelocityY > 0f;
-        float targetAngle = isRising ? riseAngle : fallAngle;
-        float rotationSpeed = isRising ? riseRotationSpeed : fallRotationSpeed;
+        bool isMovingInFlapDirection = flapRequested ||
+            (gravityInverted ? body.linearVelocityY < 0f : body.linearVelocityY > 0f);
+        float baseAngle = isMovingInFlapDirection ? riseAngle : fallAngle;
+        float targetAngle = gravityInverted ? -baseAngle : baseAngle;
+        float rotationSpeed = isMovingInFlapDirection ? riseRotationSpeed : fallRotationSpeed;
         Quaternion targetRotation = Quaternion.Euler(0f, 0f, targetAngle);
 
         transform.rotation = Quaternion.RotateTowards(

@@ -4,7 +4,7 @@ using UnityEngine;
 [RequireComponent(typeof(BoxCollider2D))]
 public sealed class PipeScoreZone : MonoBehaviour
 {
-    public static event Action OnBirdPassed;
+    public event Action OnBirdPassed;
 
     private bool hasScored;
     private BoxCollider2D scoreCollider;
