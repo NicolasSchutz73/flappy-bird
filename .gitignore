@@ -44,6 +44,11 @@
 # Crash reports
 sysinfo.txt
 crashlytics-build.properties
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+
+# Local course reference material
+/teach/
 
 # Builds artifacts
 *.apk
