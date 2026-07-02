@@ -2,11 +2,12 @@ using UnityEngine;
 
 public sealed class PipeMovement : MonoBehaviour
 {
-    [SerializeField, Min(0f)] private float moveSpeed = 3f;
+    [SerializeField, Min(0f)] private float moveSpeed = 5f;
     [SerializeField, Min(0f)] private float destroyPadding = 0.5f;
 
     private Camera mainCamera;
     private float halfWidth;
+    private bool isMoving = true;
 
     private void Awake()
     {
@@ -16,6 +17,11 @@ public sealed class PipeMovement : MonoBehaviour
 
     private void Update()
     {
+        if (!isMoving)
+        {
+            return;
+        }
+
         transform.Translate(Vector3.left * (moveSpeed * Time.deltaTime), Space.World);
 
         if (mainCamera == null)
@@ -30,6 +36,11 @@ public sealed class PipeMovement : MonoBehaviour
         {
             Destroy(gameObject);
         }
+    }
+
+    public void SetMoving(bool shouldMove)
+    {
+        isMoving = shouldMove;
     }
 
     private float CalculateHalfWidth()

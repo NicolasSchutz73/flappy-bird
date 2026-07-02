@@ -1,82 +1,163 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-// Oblige à avoir un Rigidbody2D sur cet objet (sinon le script ne fonctionne pas)
 [RequireComponent(typeof(Rigidbody2D))]
 public sealed class BirdController : MonoBehaviour
 {
-    // Vitesse du saut vers le haut
-    [SerializeField] private float flapVelocity = 8f;
-    
-    // Angle de rotation quand l'oiseau monte
-    [SerializeField] private float riseAngle = 25f;
-    
-    // Angle de rotation quand l'oiseau tombe
-    [SerializeField] private float fallAngle = -70f;
-    
-    // Vitesse de rotation quand l'oiseau monte
-    [SerializeField] private float riseRotationSpeed = 360f;
-    
-    // Vitesse de rotation quand l'oiseau tombe
-    [SerializeField] private float fallRotationSpeed = 120f;
+    public event Action OnPrimaryAction;
+    public event Action OnFlapped;
+    public event Action OnDied;
 
-    // Référence au composant de physique 2D de l'oiseau
+    [SerializeField] private float flapVelocity = 15.5f;
+    [SerializeField] private float riseAngle = 25f;
+    [SerializeField] private float fallAngle = -70f;
+    [SerializeField] private float riseRotationSpeed = 360f;
+    [SerializeField] private float fallRotationSpeed = 60f;
+
     private Rigidbody2D body;
-    
+    private Animator animator;
+    private Vector3 initialPosition;
+    private Quaternion initialRotation;
+    private float gameplayGravityScale;
+    private bool canFlap;
+    private bool isPlaying;
+    private bool gravityInverted;
     private bool flapRequested;
 
-    // Au démarrage : récupère le Rigidbody2D attaché à cet objet
     private void Awake()
     {
         body = GetComponent<Rigidbody2D>();
+        animator = GetComponent<Animator>();
+        initialPosition = transform.position;
+        initialRotation = transform.rotation;
+        gameplayGravityScale = Mathf.Abs(body.gravityScale);
     }
 
-    // À chaque frame : écoute l'entrée utilisateur et gère la rotation
     private void Update()
     {
-        // Vérifie si l'utilisateur appuie sur Espace
-        if (Keyboard.current?.spaceKey.wasPressedThisFrame == true)
+        if (Mouse.current?.leftButton.wasPressedThisFrame == true)
         {
-            flapRequested = true;
+            OnPrimaryAction?.Invoke();
+
+            if (canFlap)
+            {
+                flapRequested = true;
+            }
         }
 
-        // Met à jour l'angle de rotation de l'oiseau
-        UpdateRotation();
+        if (isPlaying)
+        {
+            UpdateRotation();
+        }
     }
 
-    // À intervalle fixe (pour la physique) : applique le saut si demandé
     private void FixedUpdate()
     {
-        // Si aucun saut n'a été demandé → on ne fait rien
-        if (!flapRequested)
+        if (!canFlap || !flapRequested)
         {
             return;
         }
 
-        // Force la vitesse verticale de l'oiseau vers le haut
-        body.linearVelocityY = flapVelocity;
-        
-        // Réinitialise le flag pour la prochaine frame
+        body.linearVelocityY = gravityInverted ? -flapVelocity : flapVelocity;
         flapRequested = false;
+        OnFlapped?.Invoke();
     }
 
-    // Fait tourner l'oiseau selon qu'il monte ou tombe
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (!isPlaying)
+        {
+            return;
+        }
+
+        Die();
+        OnDied?.Invoke();
+    }
+
+    public void PrepareForWaiting()
+    {
+        canFlap = false;
+        isPlaying = false;
+        flapRequested = false;
+        body.gravityScale = 0f;
+        body.linearVelocity = Vector2.zero;
+        body.angularVelocity = 0f;
+        body.position = initialPosition;
+        body.rotation = initialRotation.eulerAngles.z;
+        transform.SetPositionAndRotation(initialPosition, initialRotation);
+
+        if (animator != null)
+        {
+            animator.enabled = true;
+        }
+    }
+
+    public void StartPlaying()
+    {
+        body.gravityScale = gravityInverted ? -gameplayGravityScale : gameplayGravityScale;
+        canFlap = true;
+        isPlaying = true;
+
+        if (animator != null)
+        {
+            animator.enabled = true;
+        }
+    }
+
+    public void Die()
+    {
+        canFlap = false;
+        isPlaying = false;
+        flapRequested = false;
+        gravityInverted = false;
+        body.gravityScale = gameplayGravityScale;
+
+        if (animator != null)
+        {
+            animator.enabled = false;
+        }
+    }
+
+    public void SetGravityInverted(bool inverted)
+    {
+        if (gravityInverted == inverted)
+        {
+            return;
+        }
+
+        gravityInverted = inverted;
+        flapRequested = false;
+        body.linearVelocityY = 0f;
+
+        if (isPlaying)
+        {
+            body.gravityScale = gravityInverted ? -gameplayGravityScale : gameplayGravityScale;
+        }
+    }
+
+    public void SetTransitionPaused(bool paused)
+    {
+        if (!isPlaying)
+        {
+            return;
+        }
+
+        canFlap = !paused;
+        flapRequested = false;
+        body.linearVelocity = Vector2.zero;
+        body.gravityScale = paused
+            ? 0f
+            : gravityInverted ? -gameplayGravityScale : gameplayGravityScale;
+    }
+
     private void UpdateRotation()
     {
-        // L'oiseau monte si sa vitesse verticale est positive (vers le haut)
-        // OU si un saut a été demandé
-        bool isRising = body.linearVelocityY > 0f || flapRequested;
-        
-        // Choisit l'angle cible selon la direction
+        bool isRising = flapRequested ? !gravityInverted : body.linearVelocityY > 0f;
         float targetAngle = isRising ? riseAngle : fallAngle;
-        
-        // Choisit la vitesse de rotation selon la direction
         float rotationSpeed = isRising ? riseRotationSpeed : fallRotationSpeed;
-        
-        // Crée la rotation cible
         Quaternion targetRotation = Quaternion.Euler(0f, 0f, targetAngle);
 
-        // Anime progressivement vers cet angle
         transform.rotation = Quaternion.RotateTowards(
             transform.rotation,
             targetRotation,
