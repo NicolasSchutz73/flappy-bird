@@ -8,6 +8,10 @@
 /[Uu]ser[Ss]ettings/
 /[Mm]emoryCaptures/
 /[Rr]ecordings/
+*.mov
+*.mp4
+*.webm
+*.m4v
 
 # Unity Visual Studio / Rider plugin
 /[Aa]ssets/Plugins/Editor/JetBrains*
